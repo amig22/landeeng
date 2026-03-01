@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LandeEng — Genera landing page con AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .spinner { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .block-wrap:hover .block-actions { opacity: 1; }
+    .block-actions { opacity: 0; transition: opacity 0.2s; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
+
+  <!-- HEADER -->
+  <header class="border-b border-white/10 backdrop-blur-sm sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <span class="text-white font-bold text-lg">LandeEng</span>
+        <span class="text-blue-400 text-sm hidden sm:block">— Genera landing page con AI</span>
+      </div>
+      <button id="btnReset" onclick="resetApp()" class="hidden text-sm text-gray-400 hover:text-white transition-colors">
+        ← Nuova landing page
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-10">
+
+    <!-- INPUT FORM -->
+    <div id="formSection" class="max-w-2xl mx-auto">
+      <div class="text-center mb-10">
+        <h1 class="text-4xl font-bold text-white mb-4">
+          Crea la tua <span class="text-blue-400">landing page</span> in secondi
+        </h1>
+        <p class="text-gray-300 text-lg">
+          Descrivi la tua attività e l'AI genererà una landing page professionale con blocchi HTML modificabili.
+        </p>
+      </div>
+
+      <div class="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-6">
+
+        <!-- API Key input -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-300 mb-2">
+            Chiave API Anthropic
+          </label>
+          <input
+            id="apiKey"
+            type="password"
+            placeholder="sk-ant-..."
+            class="w-full bg-white/10 text-white placeholder-gray-500 border border-white/20 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p class="text-xs text-gray-500 mt-1">Ottienila su <a href="https://console.anthropic.com" target="_blank" class="text-blue-400 hover:underline">console.anthropic.com</a></p>
+        </div>
+
+        <label class="block text-sm font-medium text-gray-300 mb-3">
+          Descrivi la tua attività aziendale
+        </label>
+        <textarea
+          id="description"
+          placeholder="Es: Studio di architettura fondato nel 2010 a Roma, specializzato in progettazione sostenibile e ristrutturazioni di immobili storici. Il nostro team di 5 architetti ha completato oltre 200 progetti residenziali e commerciali..."
+          class="w-full bg-white/10 text-white placeholder-gray-500 border border-white/20 rounded-xl p-4 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-40"
+          oninput="document.getElementById('charCount').textContent = this.value.length"
+        ></textarea>
+        <div class="flex items-center justify-between mt-2">
+          <span class="text-xs text-gray-500"><span id="charCount">0</span> caratteri</span>
+          <span class="text-xs text-gray-500">Minimo 10 caratteri</span>
+        </div>
+
+        <div id="errorBox" class="hidden mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm"></div>
+
+        <button
+          id="btnGenerate"
+          onclick="generateLanding()"
+          class="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-xl transition-colors flex items-center justify-center gap-2"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Genera Landing Page
+        </button>
+      </div>
+
+      <!-- Examples -->
+      <div class="mt-8">
+        <p class="text-sm text-gray-400 mb-3 text-center">Oppure prova con un esempio:</p>
+        <div class="flex flex-col gap-2">
+          <button onclick="useExample(0)" class="text-left text-sm text-gray-400 hover:text-gray-200 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-4 py-3 transition-all">
+            Studio legale specializzato in diritto del lavoro e diritto societario, fondato nel 2005 a Milano. Offriamo consulenza legale personalizzata a privati e aziende con un team di 8 avvocati esperti.
+          </button>
+          <button onclick="useExample(1)" class="text-left text-sm text-gray-400 hover:text-gray-200 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-4 py-3 transition-all">
+            Ristorante di cucina mediterranea con oltre 20 anni di tradizione familiare a Napoli. Utilizziamo solo ingredienti freschi e di stagione. Disponiamo di sala eventi per cerimonie e banchetti fino a 200 persone.
+          </button>
+          <button onclick="useExample(2)" class="text-left text-sm text-gray-400 hover:text-gray-200 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-4 py-3 transition-all">
+            Startup fintech che sviluppa soluzioni di pagamento digitale per le PMI italiane. La nostra piattaforma integra POS fisici e digitali, gestione fatture elettroniche e analytics in tempo reale.
+          </button>
+        </div>
+      </div>
+
+      <!-- How it works -->
+      <div class="mt-12 grid grid-cols-3 gap-4">
+        <div class="text-center p-4">
+          <div class="text-2xl mb-2">✍️</div>
+          <div class="text-white font-semibold text-sm mb-1">1. Descrivi</div>
+          <div class="text-gray-400 text-xs">Racconta la tua attività in forma libera</div>
+        </div>
+        <div class="text-center p-4">
+          <div class="text-2xl mb-2">⚡</div>
+          <div class="text-white font-semibold text-sm mb-1">2. Genera</div>
+          <div class="text-gray-400 text-xs">L'AI crea blocchi HTML professionali</div>
+        </div>
+        <div class="text-center p-4">
+          <div class="text-2xl mb-2">⬇️</div>
+          <div class="text-white font-semibold text-sm mb-1">3. Esporta</div>
+          <div class="text-gray-400 text-xs">Scarica l'HTML pronto all'uso</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PREVIEW SECTION -->
+    <div id="previewSection" class="hidden">
+      <div class="mb-6 flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-white">Landing page generata ✓</h2>
+          <p class="text-gray-400 text-sm mt-1">Passa il mouse su un blocco per modificarne l'HTML. Poi esporta il risultato.</p>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="flex items-center justify-between bg-gray-900 text-white px-4 py-2 rounded-t-xl">
+        <div class="flex items-center gap-3">
+          <div class="flex gap-1.5">
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+          </div>
+          <span id="previewTitle" class="text-sm text-gray-300 font-medium"></span>
+        </div>
+        <button onclick="exportHtml()" class="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded-lg font-medium transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Esporta HTML
+        </button>
+      </div>
+
+      <!-- Preview + sidebar -->
+      <div class="flex border border-gray-200 border-t-0 rounded-b-xl overflow-hidden shadow-lg">
+        <!-- Sidebar -->
+        <div class="w-48 bg-gray-50 border-r border-gray-200 p-3 flex flex-col gap-1 shrink-0">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Blocchi</p>
+          <div id="blockNav"></div>
+        </div>
+        <!-- Preview -->
+        <div class="flex-1 overflow-y-auto max-h-[80vh] bg-white">
+          <div id="blocksContainer"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- EDIT MODAL -->
+  <div id="editModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between p-4 border-b">
+        <h3 id="modalTitle" class="text-lg font-semibold text-gray-800"></h3>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+      </div>
+      <div class="flex-1 overflow-hidden p-4 flex flex-col gap-3">
+        <p class="text-sm text-gray-500">Modifica l'HTML del blocco. Le modifiche saranno riflesse nell'anteprima.</p>
+        <textarea id="modalEditor" class="flex-1 font-mono text-sm border border-gray-300 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-64" spellcheck="false"></textarea>
+      </div>
+      <div class="flex gap-3 p-4 border-t justify-end">
+        <button onclick="closeModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">Annulla</button>
+        <button onclick="saveBlock()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Salva modifiche</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const EXAMPLES = [
+      "Studio legale specializzato in diritto del lavoro e diritto societario, fondato nel 2005 a Milano. Offriamo consulenza legale personalizzata a privati e aziende con un team di 8 avvocati esperti.",
+      "Ristorante di cucina mediterranea con oltre 20 anni di tradizione familiare a Napoli. Utilizziamo solo ingredienti freschi e di stagione. Disponiamo di sala eventi per cerimonie e banchetti fino a 200 persone.",
+      "Startup fintech che sviluppa soluzioni di pagamento digitale per le PMI italiane. La nostra piattaforma integra POS fisici e digitali, gestione fatture elettroniche e analytics in tempo reale."
+    ];
+
+    let currentBlocks = [];
+    let currentCompanyName = '';
+    let currentTagline = '';
+    let editingBlockId = null;
+
+    const SYSTEM_PROMPT = `Sei un esperto sviluppatore web e copywriter. Il tuo compito è generare una landing page HTML professionale e moderna a partire da un testo descrittivo di un'attività aziendale.
+
+Genera una landing page completa con i seguenti blocchi HTML separati:
+1. hero - Sezione hero con headline, sottotitolo e CTA button
+2. features - Sezione con 3-4 caratteristiche/servizi principali con icone SVG inline
+3. about - Sezione "Chi siamo" con testo descrittivo
+4. cta - Sezione Call to Action con pulsante
+5. footer - Footer con info aziendali
+
+Rispondi ESCLUSIVAMENTE con un oggetto JSON valido nel seguente formato:
+{
+  "companyName": "Nome azienda",
+  "tagline": "Slogan breve",
+  "blocks": [
+    {"id": "hero", "name": "Hero Section", "html": "<section>...</section>"},
+    {"id": "features", "name": "Features / Servizi", "html": "<section>...</section>"},
+    {"id": "about", "name": "Chi Siamo", "html": "<section>...</section>"},
+    {"id": "cta", "name": "Call to Action", "html": "<section>...</section>"},
+    {"id": "footer", "name": "Footer", "html": "<footer>...</footer>"}
+  ]
+}
+
+Regole per l'HTML:
+- Usa Tailwind CSS classes per lo styling
+- Rendi ogni blocco visivamente accattivante con colori adeguati al settore
+- Usa gradienti, ombre e spaziatura generosa
+- Includi icone SVG inline dove appropriato
+- I colori devono essere coerenti tra i blocchi
+- Tutto il testo deve essere in italiano
+- Non includere tag html, head, body - solo il contenuto del blocco
+- Non aggiungere script tag`;
+
+    function useExample(i) {
+      document.getElementById('description').value = EXAMPLES[i];
+      document.getElementById('charCount').textContent = EXAMPLES[i].length;
+    }
+
+    function showError(msg) {
+      const box = document.getElementById('errorBox');
+      box.textContent = msg;
+      box.classList.remove('hidden');
+    }
+
+    function hideError() {
+      document.getElementById('errorBox').classList.add('hidden');
+    }
+
+    async function generateLanding() {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const description = document.getElementById('description').value.trim();
+
+      hideError();
+
+      if (!apiKey) return showError('Inserisci la tua chiave API Anthropic.');
+      if (description.length < 10) return showError('Descrizione troppo breve. Scrivi almeno 10 caratteri.');
+
+      const btn = document.getElementById('btnGenerate');
+      btn.disabled = true;
+      btn.innerHTML = `<svg class="w-5 h-5 spinner" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Generazione in corso...`;
+
+      try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 8192,
+            system: SYSTEM_PROMPT,
+            messages: [{
+              role: 'user',
+              content: `Genera una landing page professionale per questa attività aziendale:\n\n${description}`
+            }]
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error?.message || `Errore API: ${res.status}`);
+        }
+
+        const data = await res.json();
+        let text = data.content[0].text.trim();
+        if (text.startsWith('```')) {
+          text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+        }
+
+        const landing = JSON.parse(text);
+        renderPreview(landing);
+
+      } catch (e) {
+        showError(e.message || 'Errore nella generazione. Riprova.');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Genera Landing Page`;
+      }
+    }
+
+    function renderPreview(landing) {
+      currentBlocks = landing.blocks;
+      currentCompanyName = landing.companyName;
+      currentTagline = landing.tagline;
+
+      document.getElementById('previewTitle').textContent = `${landing.companyName} — ${landing.tagline}`;
+
+      // Build nav
+      const nav = document.getElementById('blockNav');
+      nav.innerHTML = landing.blocks.map(b =>
+        `<a href="#block-${b.id}" class="block text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 px-2 py-1.5 rounded-lg transition-colors">${b.name}</a>`
+      ).join('');
+
+      // Build blocks
+      const container = document.getElementById('blocksContainer');
+      container.innerHTML = landing.blocks.map(b => `
+        <div id="block-${b.id}" class="block-wrap relative group border border-transparent hover:border-blue-400 rounded transition-all">
+          <div class="block-actions absolute top-2 right-2 z-10 flex gap-2">
+            <span class="bg-blue-600 text-white text-xs px-2 py-1 rounded font-medium">${b.name}</span>
+            <button onclick="openModal('${b.id}')" class="bg-white text-gray-700 hover:bg-blue-50 text-xs px-2 py-1 rounded border border-gray-300 font-medium shadow-sm">✏️ Modifica HTML</button>
+          </div>
+          <div class="block-content">${b.html}</div>
+        </div>
+      `).join('');
+
+      // Switch views
+      document.getElementById('formSection').classList.add('hidden');
+      document.getElementById('previewSection').classList.remove('hidden');
+      document.getElementById('btnReset').classList.remove('hidden');
+    }
+
+    function openModal(blockId) {
+      const block = currentBlocks.find(b => b.id === blockId);
+      if (!block) return;
+      editingBlockId = blockId;
+      document.getElementById('modalTitle').textContent = `Modifica: ${block.name}`;
+      document.getElementById('modalEditor').value = block.html;
+      document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      editingBlockId = null;
+      document.getElementById('editModal').classList.add('hidden');
+    }
+
+    function saveBlock() {
+      if (!editingBlockId) return;
+      const newHtml = document.getElementById('modalEditor').value;
+      currentBlocks = currentBlocks.map(b => b.id === editingBlockId ? { ...b, html: newHtml } : b);
+      // Update preview
+      const contentEl = document.querySelector(`#block-${editingBlockId} .block-content`);
+      if (contentEl) contentEl.innerHTML = newHtml;
+      closeModal();
+    }
+
+    function exportHtml() {
+      const full = `<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${currentCompanyName} — ${currentTagline}</title>
+  <script src="https://cdn.tailwindcss.com"><\/script>
+</head>
+<body>
+${currentBlocks.map(b => b.html).join('\n')}
+</body>
+</html>`;
+      const blob = new Blob([full], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${currentCompanyName.toLowerCase().replace(/\s+/g, '-')}-landing.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function resetApp() {
+      currentBlocks = [];
+      document.getElementById('previewSection').classList.add('hidden');
+      document.getElementById('formSection').classList.remove('hidden');
+      document.getElementById('btnReset').classList.add('hidden');
+    }
+
+    // Close modal on backdrop click
+    document.getElementById('editModal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+
+    // Close modal on Escape
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeModal();
+    });
+  </script>
+</body>
+</html>
