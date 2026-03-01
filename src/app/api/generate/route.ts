@@ -3,57 +3,34 @@ import { NextRequest, NextResponse } from "next/server";
 
 const client = new Anthropic();
 
-const SYSTEM_PROMPT = `Sei un esperto sviluppatore web e copywriter. Il tuo compito è generare una landing page HTML professionale e moderna a partire da un testo descrittivo di un'attività aziendale.
+const SYSTEM_PROMPT = `Sei un esperto sviluppatore web e copywriter. Genera una landing page HTML professionale a partire dalla descrizione di un'attività aziendale.
 
-Genera una landing page completa con i seguenti blocchi HTML separati:
-1. **hero** - Sezione hero con headline, sottotitolo e CTA button
-2. **features** - Sezione con 3-4 caratteristiche/servizi principali con icone SVG inline
-3. **about** - Sezione "Chi siamo" con testo descrittivo
-4. **cta** - Sezione Call to Action con pulsante
-5. **footer** - Footer con info aziendali
+Rispondi ESATTAMENTE in questo formato con i delimitatori indicati (non usare JSON):
 
-Rispondi ESCLUSIVAMENTE con un oggetto JSON valido nel seguente formato:
-{
-  "companyName": "Nome azienda",
-  "tagline": "Slogan breve",
-  "blocks": [
-    {
-      "id": "hero",
-      "name": "Hero Section",
-      "html": "<section>...</section>"
-    },
-    {
-      "id": "features",
-      "name": "Features / Servizi",
-      "html": "<section>...</section>"
-    },
-    {
-      "id": "about",
-      "name": "Chi Siamo",
-      "html": "<section>...</section>"
-    },
-    {
-      "id": "cta",
-      "name": "Call to Action",
-      "html": "<section>...</section>"
-    },
-    {
-      "id": "footer",
-      "name": "Footer",
-      "html": "<footer>...</footer>"
-    }
-  ]
-}
+COMPANY_NAME: [nome azienda]
+TAGLINE: [slogan breve]
+
+===BLOCK:hero===
+[HTML sezione hero con headline, sottotitolo e CTA button]
+===BLOCK:features===
+[HTML sezione con 3-4 servizi/caratteristiche e icone SVG inline]
+===BLOCK:about===
+[HTML sezione "Chi siamo" con testo]
+===BLOCK:cta===
+[HTML sezione Call to Action con pulsante]
+===BLOCK:footer===
+[HTML footer con info aziendali]
+===END===
 
 Regole per l'HTML:
-- Usa Tailwind CSS classes per lo styling (la pagina usa Tailwind)
-- Rendi ogni blocco visivamente accattivante con colori adeguati al settore
+- Usa Tailwind CSS classes per lo styling
+- Ogni blocco deve essere visivamente accattivante con colori adeguati al settore
 - Usa gradienti, ombre e spaziatura generosa
 - Includi icone SVG inline dove appropriato
-- I colori devono essere coerenti tra i blocchi
-- Tutto il testo deve essere in italiano
-- Non includere tag <html>, <head>, <body> - solo il contenuto del blocco
-- Non aggiungere script tag`;
+- Colori coerenti tra tutti i blocchi
+- Testo in italiano
+- Non includere tag html, head, body, script
+- Non racchiudere l'HTML in backtick o markdown`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -83,23 +60,42 @@ export async function POST(request: NextRequest) {
       throw new Error("Unexpected response type from Claude");
     }
 
-    // Extract JSON from response (handle markdown code blocks)
-    let jsonText = content.text.trim();
-    if (jsonText.startsWith("```")) {
-      jsonText = jsonText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    const text = content.text;
+    const BLOCK_NAMES: Record<string, string> = {
+      hero: "Hero Section",
+      features: "Features / Servizi",
+      about: "Chi Siamo",
+      cta: "Call to Action",
+      footer: "Footer",
+    };
+
+    const companyMatch = text.match(/COMPANY_NAME:\s*(.+)/);
+    const taglineMatch = text.match(/TAGLINE:\s*(.+)/);
+    const blocks: { id: string; name: string; html: string }[] = [];
+    const blockRegex = /===BLOCK:(\w+)===([\s\S]*?)(?====BLOCK:|===END===|$)/g;
+    let match;
+    while ((match = blockRegex.exec(text)) !== null) {
+      const id = match[1].trim();
+      const html = match[2].trim();
+      if (html) blocks.push({ id, name: BLOCK_NAMES[id] ?? id, html });
     }
 
-    const data = JSON.parse(jsonText);
+    if (!blocks.length) {
+      return NextResponse.json(
+        { error: "Formato risposta non riconosciuto. Riprova." },
+        { status: 500 }
+      );
+    }
+
+    const data = {
+      companyName: companyMatch?.[1]?.trim() ?? "Azienda",
+      tagline: taglineMatch?.[1]?.trim() ?? "",
+      blocks,
+    };
 
     return NextResponse.json(data);
   } catch (error) {
     console.error("Error generating landing page:", error);
-    if (error instanceof SyntaxError) {
-      return NextResponse.json(
-        { error: "Errore nel parsing della risposta. Riprova." },
-        { status: 500 }
-      );
-    }
     return NextResponse.json(
       { error: "Errore nella generazione. Riprova tra qualche secondo." },
       { status: 500 }
