@@ -198,37 +198,34 @@
     let currentTagline = '';
     let editingBlockId = null;
 
-    const SYSTEM_PROMPT = `Sei un esperto sviluppatore web e copywriter. Il tuo compito è generare una landing page HTML professionale e moderna a partire da un testo descrittivo di un'attività aziendale.
+    const SYSTEM_PROMPT = `Sei un esperto sviluppatore web e copywriter. Genera una landing page HTML professionale a partire dalla descrizione di un'attività aziendale.
 
-Genera una landing page completa con i seguenti blocchi HTML separati:
-1. hero - Sezione hero con headline, sottotitolo e CTA button
-2. features - Sezione con 3-4 caratteristiche/servizi principali con icone SVG inline
-3. about - Sezione "Chi siamo" con testo descrittivo
-4. cta - Sezione Call to Action con pulsante
-5. footer - Footer con info aziendali
+Rispondi ESATTAMENTE in questo formato con i delimitatori indicati (non usare JSON):
 
-Rispondi ESCLUSIVAMENTE con un oggetto JSON valido nel seguente formato:
-{
-  "companyName": "Nome azienda",
-  "tagline": "Slogan breve",
-  "blocks": [
-    {"id": "hero", "name": "Hero Section", "html": "<section>...</section>"},
-    {"id": "features", "name": "Features / Servizi", "html": "<section>...</section>"},
-    {"id": "about", "name": "Chi Siamo", "html": "<section>...</section>"},
-    {"id": "cta", "name": "Call to Action", "html": "<section>...</section>"},
-    {"id": "footer", "name": "Footer", "html": "<footer>...</footer>"}
-  ]
-}
+COMPANY_NAME: [nome azienda]
+TAGLINE: [slogan breve]
+
+===BLOCK:hero===
+[HTML sezione hero con headline, sottotitolo e CTA button]
+===BLOCK:features===
+[HTML sezione con 3-4 servizi/caratteristiche e icone SVG inline]
+===BLOCK:about===
+[HTML sezione "Chi siamo" con testo]
+===BLOCK:cta===
+[HTML sezione Call to Action con pulsante]
+===BLOCK:footer===
+[HTML footer con info aziendali]
+===END===
 
 Regole per l'HTML:
 - Usa Tailwind CSS classes per lo styling
-- Rendi ogni blocco visivamente accattivante con colori adeguati al settore
+- Ogni blocco deve essere visivamente accattivante con colori adeguati al settore
 - Usa gradienti, ombre e spaziatura generosa
 - Includi icone SVG inline dove appropriato
-- I colori devono essere coerenti tra i blocchi
-- Tutto il testo deve essere in italiano
-- Non includere tag html, head, body - solo il contenuto del blocco
-- Non aggiungere script tag`;
+- Colori coerenti tra tutti i blocchi
+- Testo in italiano
+- Non includere tag html, head, body, script
+- Non racchiudere l'HTML in backtick o markdown`;
 
     function useExample(i) {
       document.getElementById('description').value = EXAMPLES[i];
@@ -245,6 +242,32 @@ Regole per l'HTML:
       document.getElementById('errorBox').classList.add('hidden');
     }
 
+    function parseLandingResponse(text) {
+      const BLOCK_NAMES = {
+        hero: 'Hero Section',
+        features: 'Features / Servizi',
+        about: 'Chi Siamo',
+        cta: 'Call to Action',
+        footer: 'Footer'
+      };
+      const companyMatch = text.match(/COMPANY_NAME:\s*(.+)/);
+      const taglineMatch = text.match(/TAGLINE:\s*(.+)/);
+      const blocks = [];
+      const blockRegex = /===BLOCK:(\w+)===([\s\S]*?)(?====BLOCK:|===END===|$)/g;
+      let match;
+      while ((match = blockRegex.exec(text)) !== null) {
+        const id = match[1].trim();
+        const html = match[2].trim();
+        if (html) blocks.push({ id, name: BLOCK_NAMES[id] || id, html });
+      }
+      if (!blocks.length) throw new Error('Formato risposta non riconosciuto. Riprova.');
+      return {
+        companyName: companyMatch ? companyMatch[1].trim() : 'Azienda',
+        tagline: taglineMatch ? taglineMatch[1].trim() : '',
+        blocks
+      };
+    }
+
     async function generateLanding() {
       const apiKey = document.getElementById('apiKey').value.trim();
       const description = document.getElementById('description').value.trim();
@@ -258,9 +281,13 @@ Regole per l'HTML:
       btn.disabled = true;
       btn.innerHTML = `<svg class="w-5 h-5 spinner" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Generazione in corso...`;
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout
+
       try {
         const res = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
             'x-api-key': apiKey,
@@ -269,7 +296,7 @@ Regole per l'HTML:
           },
           body: JSON.stringify({
             model: 'claude-sonnet-4-6',
-            max_tokens: 8192,
+            max_tokens: 6000,
             system: SYSTEM_PROMPT,
             messages: [{
               role: 'user',
@@ -279,22 +306,24 @@ Regole per l'HTML:
         });
 
         if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error?.message || `Errore API: ${res.status}`);
+          let errMsg = `Errore API: ${res.status}`;
+          try { const err = await res.json(); errMsg = err.error?.message || errMsg; } catch {}
+          throw new Error(errMsg);
         }
 
         const data = await res.json();
-        let text = data.content[0].text.trim();
-        if (text.startsWith('```')) {
-          text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-        }
-
-        const landing = JSON.parse(text);
+        const text = data.content[0].text;
+        const landing = parseLandingResponse(text);
         renderPreview(landing);
 
       } catch (e) {
-        showError(e.message || 'Errore nella generazione. Riprova.');
+        if (e.name === 'AbortError') {
+          showError('Timeout: la richiesta ha impiegato troppo tempo. Controlla la tua chiave API o riprova.');
+        } else {
+          showError(e.message || 'Errore nella generazione. Riprova.');
+        }
       } finally {
+        clearTimeout(timeout);
         btn.disabled = false;
         btn.innerHTML = `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Genera Landing Page`;
       }
